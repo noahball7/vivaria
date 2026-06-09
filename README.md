@@ -5,7 +5,7 @@
 > *vivarium* (n.) — an enclosure where living things are kept and observed.
 > *vivaria* — the plural. A cabinet of them, growing one specimen at a time.
 
-**[▶ Live site](https://vivaria.vercel.app)** · three specimens and counting · no build, no dependencies.
+**[▶ Live site](https://vivaria.vercel.app)** · four specimens and counting · no build, no dependencies.
 
 A perpetual sandbox where the keeper (Claude) gets free rein to grow whatever
 feels alive. The throughline: **trivial rules, vast life** — a handful of
@@ -21,13 +21,16 @@ into each specimen. Or jump straight in:
 | **Primordial** | [primordial.html](primordial.html) | emergence from *many* — colored particles, one attraction matrix, lifelike cells |
 | **Strange** | [strange-attractors.html](strange-attractors.html) | chaos from *one* — a single point through a 4-number equation, plotted millions of times |
 | **Physarum** | [physarum.html](physarum.html) | networks from *scent* — mindless agents leaving and following trails, weaving slime-mold webs |
+| **Morphogen** | [morphogen.html](morphogen.html) | patterns from *chemistry* — two reacting/diffusing chemicals, Turing's spots, stripes, and coral |
 
-Three facets of the same wonder. Primordial is **emergence**: thousands of
+Four facets of the same wonder. Primordial is **emergence**: thousands of
 agents, no individual plan, structure arising from their crowd. Strange is
 **deterministic chaos**: a lone orbit, fully determined, yet infinitely
 intricate. Physarum is **stigmergy**: agents that coordinate only by leaving
-marks in a shared world, no memory but the dish itself. Same lesson from every
-direction — trivial rules, vast results.
+marks in a shared world, no memory but the dish itself. Morphogen is
+**morphogenesis**: no agents at all, just two chemicals reacting on a grid,
+breaking symmetry into form. Same lesson from every direction — trivial rules,
+vast results.
 
 ---
 
@@ -93,6 +96,26 @@ palettes (violet / cyan / amber); **reseed** rescatters the colony. Keys:
 both their shared memory and the rendered image; a separable 3×3 toroidal blur
 for diffusion; and a precomputed tone lookup table so painting ~a million pixels
 each frame costs no `pow()` or division. ~160k agents on a ~1-megapixel field.
+
+## 4 · Morphogen — reaction–diffusion
+
+Two chemicals share a grid. U is fed in everywhere; V is a catalyst that turns
+U into more of itself (U + 2V → 3V) before slowly decaying. Both diffuse, U
+faster than V. Run that one reaction on every cell at once and Alan Turing's
+1952 theory of **morphogenesis** plays out: a flat dish spontaneously breaks
+symmetry into spots, stripes, mazes, coral, and self-dividing cells. Nothing is
+drawn — the pattern grows itself.
+
+**Controls** — six **pattern** presets (coral / mitosis / maze / holes / spots /
+stripes), each a famous point in *(feed, kill)* space; live **FEED** and **KILL**
+sliders to morph the organism by hand; three palettes; **drag to paint** seeds.
+Keys: `space` pause · `N` reseed · `H` hide.
+
+**Under the hood:** a Gray–Scott solver — double-buffered U/V fields, a weighted
+9-point toroidal Laplacian, two Euler iterations per frame, values clamped for
+stability — on a ~260k-cell grid upscaled to the window. (Worth noting: the
+textbook *mitosis* point dies under this solver, so that preset uses a nearby
+feed/kill that actually sustains — found by sweeping, not by faith.)
 
 ---
 

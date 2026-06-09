@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Morphogen · reaction–diffusion</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%2306070b'/><circle cx='12' cy='12' r='4.6' fill='%237aa2ff'/></svg>" />
+<style>
+  :root {
+    --bg: #06070b;
+    --panel: rgba(14, 16, 24, 0.82);
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e7e9f0;
+    --muted: #8a8fa3;
+    --accent: #7aa2ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg);
+    color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; -webkit-font-smoothing: antialiased; }
+  #stage { position: fixed; inset: 0; display: block; width: 100%; height: 100%; image-rendering: auto; }
+
+  #panel {
+    position: fixed; top: 16px; left: 16px; width: 256px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; backdrop-filter: blur(14px) saturate(1.3);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5); user-select: none;
+    transition: opacity .25s, transform .25s; z-index: 10;
+  }
+  #panel.hidden { opacity: 0; transform: translateX(-14px); pointer-events: none; }
+  .back { display: inline-block; font-size: 10px; letter-spacing: .14em; color: var(--muted); text-decoration: none; margin-bottom: 11px; transition: color .15s; }
+  .back:hover { color: var(--accent); }
+  .title { font-size: 15px; letter-spacing: .14em; font-weight: 600; }
+  .title .dot { color: var(--accent); }
+  .sub { font-size: 10.5px; color: var(--muted); margin-top: 3px; letter-spacing: .04em; }
+
+  .label { font-size: 10px; color: var(--muted); letter-spacing: .1em; margin: 15px 0 7px; }
+  .seg { display: grid; gap: 8px; }
+  .seg.p { grid-template-columns: repeat(3, 1fr); }
+  .seg.pal { grid-template-columns: repeat(3, 1fr); }
+  .seg button, .btns button { font-family: inherit; font-size: 11px; letter-spacing: .03em; color: var(--text);
+    background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 9px; padding: 9px 4px; cursor: pointer; transition: background .15s, border-color .15s; }
+  .seg button.on { background: rgba(122,162,255,0.18); border-color: rgba(122,162,255,.42); color: var(--accent); }
+  .seg button:hover, .btns button:hover { background: rgba(122,162,255,0.12); border-color: rgba(122,162,255,.4); }
+
+  .row { margin-top: 13px; }
+  .row label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: .03em; }
+  .row label .val { color: var(--text); }
+  input[type="range"] { -webkit-appearance: none; width: 100%; height: 3px; border-radius: 3px; background: rgba(255,255,255,0.14); outline: none; margin: 0; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 0 10px rgba(122,162,255,.7); }
+
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+  .btns button.primary { background: rgba(122,162,255,0.14); border-color: rgba(122,162,255,.35); color: var(--accent); }
+
+  .foot { margin-top: 14px; font-size: 9.5px; color: var(--muted); line-height: 1.7; letter-spacing: .02em; }
+  .foot kbd { background: rgba(255,255,255,0.08); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 9px; color: var(--text); }
+  #status { position: fixed; top: 16px; right: 18px; font-size: 10.5px; color: var(--muted); letter-spacing: .06em; z-index: 10; }
+  #status b { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div id="panel">
+  <a class="back" href="index.html">↩ vivaria</a>
+  <div class="title">MORPHOGEN<span class="dot">.</span></div>
+  <div class="sub">two chemicals · Turing patterns</div>
+
+  <div class="label">PATTERN</div>
+  <div class="seg p" id="presetSeg">
+    <button data-p="coral" class="on">coral</button>
+    <button data-p="mitosis">mitosis</button>
+    <button data-p="maze">maze</button>
+    <button data-p="holes">holes</button>
+    <button data-p="spots">spots</button>
+    <button data-p="stripes">stripes</button>
+  </div>
+
+  <div class="row"><label>FEED <span class="val" id="vF">0.0545</span></label>
+    <input id="sF" type="range" min="0.010" max="0.090" step="0.0005" value="0.0545" /></div>
+  <div class="row"><label>KILL <span class="val" id="vK">0.0620</span></label>
+    <input id="sK" type="range" min="0.040" max="0.070" step="0.0005" value="0.0620" /></div>
+
+  <div class="label">PALETTE</div>
+  <div class="seg pal" id="palSeg">
+    <button data-pal="reef" class="on">reef</button>
+    <button data-pal="ember">ember</button>
+    <button data-pal="gold">gold</button>
+  </div>
+
+  <div class="btns">
+    <button id="bReseed" class="primary">reseed</button>
+    <button id="bPause">pause</button>
+  </div>
+
+  <div class="foot">
+    <kbd>space</kbd> pause · <kbd>N</kbd> reseed · <kbd>H</kbd> hide<br/>
+    drag to paint seeds · feed &amp; kill tune the whole organism.
+  </div>
+</div>
+
+<div id="status"><b id="fpsVal">60</b> fps</div>
+
+<script>
+"use strict";
+/* ========================================================================
+   MORPHOGEN — a reaction–diffusion world (Gray–Scott)
+   --------------------------------------------------------------------------
+   Two virtual chemicals share a dish. U is fed in everywhere; V is the
+   catalyst. Wherever they meet, V converts U into more V (U + 2V → 3V), while
+   V slowly decays. Both also diffuse — U twice as fast as V. That single
+   reaction, run on every cell at once, is Alan Turing's 1952 theory of
+   morphogenesis: it spontaneously breaks symmetry into spots, stripes, mazes,
+   coral, and self-dividing cells. Nothing is drawn; the pattern grows itself.
+   Feed (how fast U arrives) and kill (how fast V leaves) pick which creature
+   the dish becomes.
+   ======================================================================== */
+
+const canvas = document.getElementById("stage");
+const ctx = canvas.getContext("2d", { alpha: false });
+
+const cfg = { feed: 0.0545, kill: 0.0620, Du: 1.0, Dv: 0.5, iters: 2 };
+
+const PRESETS = {
+  coral:   [0.0545, 0.0620],
+  mitosis: [0.0340, 0.0618],   // dividing spots that actually sustain in this solver
+  maze:    [0.0290, 0.0570],
+  holes:   [0.0390, 0.0580],
+  spots:   [0.0245, 0.0600],
+  stripes: [0.0220, 0.0510],
+};
+
+let GW = 0, GH = 0;
+let U, V, U2, V2, img;
+let xm1, xp1;              // wrapped neighbour column indices
+
+function resize() {
+  const cap = 260_000;     // grid cells — kept modest so 2 iters/frame stay ~60fps
+  const w = window.innerWidth, h = window.innerHeight;
+  const s = Math.sqrt(Math.min(1, cap / (w * h)));
+  GW = Math.max(4, Math.round(w * s));
+  GH = Math.max(4, Math.round(h * s));
+  canvas.width = GW; canvas.height = GH;
+  U = new Float32Array(GW * GH); V = new Float32Array(GW * GH);
+  U2 = new Float32Array(GW * GH); V2 = new Float32Array(GW * GH);
+  img = ctx.createImageData(GW, GH);
+  xm1 = new Int32Array(GW); xp1 = new Int32Array(GW);
+  for (let x = 0; x < GW; x++) { xm1[x] = x > 0 ? x - 1 : GW - 1; xp1[x] = x < GW - 1 ? x + 1 : 0; }
+  seed();
+}
+window.addEventListener("resize", resize);
+
+// U = 1 everywhere, V = 0, then splash a handful of V blobs to break symmetry.
+function seed() {
+  U.fill(1); V.fill(0);
+  // bigger, fully-converted blobs so even finicky regimes (mitosis) reach the
+  // critical size needed to catch instead of shrinking to nothing
+  const blobs = 18, R = Math.max(5, Math.round(Math.min(GW, GH) / 45));
+  for (let b = 0; b < blobs; b++) splash((Math.random() * GW) | 0, (Math.random() * GH) | 0, R);
+}
+function splash(cx, cy, r) {
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx*dx + dy*dy > r*r) continue;
+      const x = ((cx + dx) % GW + GW) % GW, y = ((cy + dy) % GH + GH) % GH;
+      const i = y * GW + x;
+      U[i] = 0.0; V[i] = 0.9;
+    }
+  }
+}
+
+// ---- palettes -----------------------------------------------------------
+function buildLUT(anchors) {
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255;
+    let k = 0; while (k < anchors.length - 2 && t > anchors[k + 1][0]) k++;
+    const [t0, c0] = anchors[k], [t1, c1] = anchors[k + 1];
+    const f = t1 > t0 ? (t - t0) / (t1 - t0) : 0;
+    lut[i*3]   = c0[0] + (c1[0] - c0[0]) * f;
+    lut[i*3+1] = c0[1] + (c1[1] - c0[1]) * f;
+    lut[i*3+2] = c0[2] + (c1[2] - c0[2]) * f;
+  }
+  return lut;
+}
+const PALETTES = {
+  reef:  buildLUT([[0,[6,9,18]],[0.4,[14,46,84]],[0.64,[28,140,168]],[0.84,[120,228,214]],[1,[238,255,246]]]),
+  ember: buildLUT([[0,[9,5,10]],[0.4,[78,18,52]],[0.68,[196,56,66]],[0.86,[244,158,86]],[1,[255,246,206]]]),
+  gold:  buildLUT([[0,[8,8,12]],[0.45,[40,40,64]],[0.7,[150,128,90]],[0.88,[226,196,120]],[1,[255,250,228]]]),
+};
+let paletteName = "reef";
+
+// trail/V value → palette index, precomputed (smoothstep contrast, no per-pixel math)
+const VMAX = 0.42, V_Q = 1023 / VMAX;
+const toneIdx = new Uint8Array(1024);
+for (let q = 0; q < 1024; q++) {
+  let t = (q / V_Q) / 0.34; if (t > 1) t = 1;
+  const norm = t * t * (3 - 2 * t);   // smoothstep for crisp organic edges
+  toneIdx[q] = (norm * 255) | 0;
+}
+
+// ---- the reaction (one Euler step, toroidal 9-point Laplacian) ----------
+function reactStep() {
+  const Du = cfg.Du, Dv = cfg.Dv, f = cfg.feed, k = cfg.kill, kf = k + f;
+  for (let y = 0; y < GH; y++) {
+    const row = y * GW;
+    const up = (y > 0 ? y - 1 : GH - 1) * GW;
+    const dn = (y < GH - 1 ? y + 1 : 0) * GW;
+    for (let x = 0; x < GW; x++) {
+      const i = row + x, l = xm1[x], r = xp1[x];
+      const u = U[i], v = V[i];
+      // weighted Laplacian: orthogonal 0.2, diagonal 0.05, center -1
+      const lapU = 0.2 * (U[row+l] + U[row+r] + U[up+x] + U[dn+x])
+                 + 0.05 * (U[up+l] + U[up+r] + U[dn+l] + U[dn+r]) - u;
+      const lapV = 0.2 * (V[row+l] + V[row+r] + V[up+x] + V[dn+x])
+                 + 0.05 * (V[up+l] + V[up+r] + V[dn+l] + V[dn+r]) - v;
+      const uvv = u * v * v;
+      let nu = u + (Du * lapU - uvv + f * (1 - u));
+      let nv = v + (Dv * lapV + uvv - kf * v);
+      U2[i] = nu < 0 ? 0 : nu > 1 ? 1 : nu;
+      V2[i] = nv < 0 ? 0 : nv > 1 ? 1 : nv;
+    }
+  }
+  let t = U; U = U2; U2 = t;
+  t = V; V = V2; V2 = t;
+}
+
+// ---- render V to light --------------------------------------------------
+function paint() {
+  const lut = PALETTES[paletteName], data = img.data, tone = toneIdx, n = GW * GH;
+  for (let i = 0; i < n; i++) {
+    let v = V[i]; if (v > VMAX) v = VMAX;
+    const l3 = tone[(v * V_Q) | 0] * 3, o = i * 4;
+    data[o] = lut[l3]; data[o+1] = lut[l3+1]; data[o+2] = lut[l3+2]; data[o+3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// ---- mouse painting -----------------------------------------------------
+const mouse = { down: false };
+function paintAt(clientX, clientY) {
+  const gx = (clientX / window.innerWidth * GW) | 0;
+  const gy = (clientY / window.innerHeight * GH) | 0;
+  splash(gx, gy, Math.max(4, (Math.min(GW, GH) / 40) | 0));
+}
+canvas.addEventListener("pointerdown", (e) => { mouse.down = true; paintAt(e.clientX, e.clientY); });
+window.addEventListener("pointermove", (e) => { if (mouse.down) paintAt(e.clientX, e.clientY); });
+window.addEventListener("pointerup", () => { mouse.down = false; });
+
+// ---- loop ---------------------------------------------------------------
+let paused = false, frames = 0, lastFps = performance.now();
+function loop() {
+  if (!paused) { for (let s = 0; s < cfg.iters; s++) reactStep(); paint(); }
+  frames++;
+  const now = performance.now();
+  if (now - lastFps > 500) {
+    document.getElementById("fpsVal").textContent = Math.round(frames * 1000 / (now - lastFps));
+    frames = 0; lastFps = now;
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---- UI -----------------------------------------------------------------
+function setFK(f, k) {
+  cfg.feed = f; cfg.kill = k;
+  const sF = document.getElementById("sF"), sK = document.getElementById("sK");
+  sF.value = f; sK.value = k;
+  document.getElementById("vF").textContent = f.toFixed(4);
+  document.getElementById("vK").textContent = k.toFixed(4);
+}
+document.getElementById("presetSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("#presetSeg button").forEach((x) => x.classList.remove("on"));
+  b.classList.add("on");
+  const [f, k] = PRESETS[b.dataset.p]; setFK(f, k); seed();
+});
+document.getElementById("sF").addEventListener("input", (e) => {
+  cfg.feed = +e.target.value; document.getElementById("vF").textContent = cfg.feed.toFixed(4);
+  document.querySelectorAll("#presetSeg button").forEach((x) => x.classList.remove("on"));
+});
+document.getElementById("sK").addEventListener("input", (e) => {
+  cfg.kill = +e.target.value; document.getElementById("vK").textContent = cfg.kill.toFixed(4);
+  document.querySelectorAll("#presetSeg button").forEach((x) => x.classList.remove("on"));
+});
+document.getElementById("palSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("#palSeg button").forEach((x) => x.classList.remove("on"));
+  b.classList.add("on"); paletteName = b.dataset.pal;
+});
+document.getElementById("bReseed").addEventListener("click", seed);
+const pauseBtn = document.getElementById("bPause");
+pauseBtn.addEventListener("click", () => { paused = !paused; pauseBtn.textContent = paused ? "resume" : "pause"; });
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") { e.preventDefault(); pauseBtn.click(); }
+  else if (e.key === "n" || e.key === "N") seed();
+  else if (e.key === "h" || e.key === "H") document.getElementById("panel").classList.toggle("hidden");
+});
+
+// ---- boot ---------------------------------------------------------------
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
