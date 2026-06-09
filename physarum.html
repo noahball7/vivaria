@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Physarum · a slime mold</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%2306070b'/><circle cx='12' cy='12' r='4.6' fill='%23c792ea'/></svg>" />
+<style>
+  :root {
+    --bg: #06070b;
+    --panel: rgba(14, 16, 24, 0.82);
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e7e9f0;
+    --muted: #8a8fa3;
+    --accent: #c792ea;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg);
+    color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; -webkit-font-smoothing: antialiased; }
+  #stage { position: fixed; inset: 0; display: block; width: 100%; height: 100%; image-rendering: auto; }
+
+  #panel {
+    position: fixed; top: 16px; left: 16px; width: 256px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; backdrop-filter: blur(14px) saturate(1.3);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5); user-select: none;
+    transition: opacity .25s, transform .25s; z-index: 10;
+  }
+  #panel.hidden { opacity: 0; transform: translateX(-14px); pointer-events: none; }
+  .back { display: inline-block; font-size: 10px; letter-spacing: .14em; color: var(--muted); text-decoration: none; margin-bottom: 11px; transition: color .15s; }
+  .back:hover { color: var(--accent); }
+  .title { font-size: 15px; letter-spacing: .14em; font-weight: 600; }
+  .title .dot { color: var(--accent); }
+  .sub { font-size: 10.5px; color: var(--muted); margin-top: 3px; letter-spacing: .04em; }
+
+  .row { margin-top: 13px; }
+  .row label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: .03em; }
+  .row label .val { color: var(--text); }
+  input[type="range"] { -webkit-appearance: none; width: 100%; height: 3px; border-radius: 3px; background: rgba(255,255,255,0.14); outline: none; margin: 0; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 0 10px rgba(199,146,234,.7); }
+
+  .label { font-size: 10px; color: var(--muted); letter-spacing: .1em; margin: 15px 0 7px; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .seg button, .btns button { font-family: inherit; font-size: 11px; letter-spacing: .04em; color: var(--text);
+    background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 9px; padding: 9px 4px; cursor: pointer; transition: background .15s, border-color .15s; }
+  .seg button.on { background: rgba(199,146,234,0.18); border-color: rgba(199,146,234,.42); color: var(--accent); }
+  .seg button:hover, .btns button:hover { background: rgba(199,146,234,0.12); border-color: rgba(199,146,234,.4); }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+  .btns button.wide { grid-column: 1 / -1; }
+  .btns button.primary { background: rgba(199,146,234,0.14); border-color: rgba(199,146,234,.35); color: var(--accent); }
+
+  .foot { margin-top: 14px; font-size: 9.5px; color: var(--muted); line-height: 1.7; letter-spacing: .02em; }
+  .foot kbd { background: rgba(255,255,255,0.08); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 9px; color: var(--text); }
+  #status { position: fixed; top: 16px; right: 18px; font-size: 10.5px; color: var(--muted); letter-spacing: .06em; z-index: 10; }
+  #status b { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div id="panel">
+  <a class="back" href="index.html">↩ vivaria</a>
+  <div class="title">PHYSARUM<span class="dot">.</span></div>
+  <div class="sub">no brain · only scent</div>
+
+  <div class="row"><label>AGENTS <span class="val" id="vAgents">160k</span></label>
+    <input id="sAgents" type="range" min="40" max="320" step="10" value="160" /></div>
+  <div class="row"><label>SENSE ANGLE <span class="val" id="vSA">22°</span></label>
+    <input id="sSA" type="range" min="5" max="60" step="1" value="22" /></div>
+  <div class="row"><label>SENSE REACH <span class="val" id="vSD">9</span></label>
+    <input id="sSD" type="range" min="3" max="28" step="1" value="9" /></div>
+  <div class="row"><label>TURN <span class="val" id="vTurn">38°</span></label>
+    <input id="sTurn" type="range" min="5" max="60" step="1" value="38" /></div>
+  <div class="row"><label>TRAIL LIFE <span class="val" id="vLife">92</span></label>
+    <input id="sLife" type="range" min="80" max="99" step="1" value="92" /></div>
+
+  <div class="label">PALETTE</div>
+  <div class="seg" id="palSeg">
+    <button data-pal="violet" class="on">violet</button>
+    <button data-pal="cyan">cyan</button>
+    <button data-pal="amber">amber</button>
+  </div>
+
+  <div class="btns">
+    <button id="bReseed" class="primary">reseed</button>
+    <button id="bPause">pause</button>
+  </div>
+
+  <div class="foot">
+    <kbd>space</kbd> pause · <kbd>N</kbd> reseed · <kbd>H</kbd> hide<br/>
+    hundreds of thousands of agents, each only following the trail the others left.
+  </div>
+</div>
+
+<div id="status"><b id="fpsVal">60</b> fps</div>
+
+<script>
+"use strict";
+/* ========================================================================
+   PHYSARUM — a slime mold
+   --------------------------------------------------------------------------
+   Each agent is mindless: it sniffs the trail map ahead-left, ahead, and
+   ahead-right, steers toward whichever smells strongest, steps forward, and
+   drops a little scent of its own. The trail diffuses and fades. From that
+   single rule — deposit and follow — the colony self-organizes into living,
+   branching transport networks, the same stigmergy a real Physarum uses to
+   solve mazes. No leader, no plan, no memory but the dish itself.
+   ======================================================================== */
+
+const canvas = document.getElementById("stage");
+const ctx = canvas.getContext("2d", { alpha: false });
+
+const cfg = {
+  agents: 160000,
+  senseAngle: 22 * Math.PI / 180,
+  senseDist: 9,
+  turn: 38 * Math.PI / 180,
+  trailLife: 0.92,   // fraction of trail retained each frame after diffusion
+  speed: 1.0,
+  deposit: 5,
+};
+
+let GW = 0, GH = 0;        // grid (and canvas) resolution
+let trail, tmp, img;       // density field, blur scratch, output pixels
+let ax, ay, ah;            // agent x, y, heading
+
+function resize() {
+  // cap the field so the per-frame blur + paint stays smooth
+  const cap = 1_100_000;
+  let w = window.innerWidth, h = window.innerHeight;
+  const scale = Math.sqrt(Math.min(1, cap / (w * h)));
+  GW = Math.max(2, Math.round(w * scale));
+  GH = Math.max(2, Math.round(h * scale));
+  canvas.width = GW; canvas.height = GH;
+  trail = new Float32Array(GW * GH);
+  tmp = new Float32Array(GW * GH);
+  img = ctx.createImageData(GW, GH);
+  seed();
+}
+window.addEventListener("resize", resize);
+
+function seed() {
+  const n = cfg.agents;
+  ax = new Float32Array(n); ay = new Float32Array(n); ah = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    ax[i] = Math.random() * GW;
+    ay[i] = Math.random() * GH;
+    ah[i] = Math.random() * Math.PI * 2;
+  }
+  trail.fill(0);
+}
+
+// ---- palettes -----------------------------------------------------------
+function buildLUT(anchors) {
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255;
+    let k = 0; while (k < anchors.length - 2 && t > anchors[k + 1][0]) k++;
+    const [t0, c0] = anchors[k], [t1, c1] = anchors[k + 1];
+    const f = t1 > t0 ? (t - t0) / (t1 - t0) : 0;
+    lut[i*3]   = c0[0] + (c1[0] - c0[0]) * f;
+    lut[i*3+1] = c0[1] + (c1[1] - c0[1]) * f;
+    lut[i*3+2] = c0[2] + (c1[2] - c0[2]) * f;
+  }
+  return lut;
+}
+const PALETTES = {
+  violet: buildLUT([[0,[5,4,12]],[0.25,[44,12,72]],[0.5,[120,30,140]],[0.72,[212,72,162]],[0.88,[250,150,205]],[1,[255,250,255]]]),
+  cyan:   buildLUT([[0,[3,7,13]],[0.3,[10,52,82]],[0.6,[22,150,180]],[0.85,[132,232,250]],[1,[255,255,255]]]),
+  amber:  buildLUT([[0,[8,5,4]],[0.3,[72,26,10]],[0.6,[182,82,20]],[0.85,[246,182,92]],[1,[255,250,214]]]),
+};
+let paletteName = "violet";
+
+// Precompute trail-value → palette-index so paint() does zero pow()/div per
+// pixel. Trail is capped at 80; quantize that range into 1024 buckets once.
+const TRAIL_MAX = 80, TONE_Q = 1023 / TRAIL_MAX;
+const toneIdx = new Uint8Array(1024);
+for (let q = 0; q < 1024; q++) {
+  const v = q / TONE_Q;
+  let norm = v <= 0 ? 0 : 1 - 1 / (1 + v * 0.32);   // soft-saturating
+  norm = Math.pow(norm, 0.85);                        // gentle gamma lift
+  toneIdx[q] = (norm * 255) | 0;
+}
+
+// ---- agent update: sense, steer, move, deposit --------------------------
+function senseAt(x, y, a, dist) {
+  let sx = (x + Math.cos(a) * dist) | 0;
+  let sy = (y + Math.sin(a) * dist) | 0;
+  sx = ((sx % GW) + GW) % GW;
+  sy = ((sy % GH) + GH) % GH;
+  return trail[sy * GW + sx];
+}
+
+function stepAgents() {
+  const n = cfg.agents, sa = cfg.senseAngle, sd = cfg.senseDist, turn = cfg.turn, sp = cfg.speed, dep = cfg.deposit;
+  for (let i = 0; i < n; i++) {
+    const x = ax[i], y = ay[i], a = ah[i];
+    const c = senseAt(x, y, a, sd);
+    const l = senseAt(x, y, a - sa, sd);
+    const r = senseAt(x, y, a + sa, sd);
+    let na = a;
+    if (c > l && c > r) {            // straight ahead smells best — hold course
+      // no change
+    } else if (c < l && c < r) {     // a dead patch ahead — turn randomly
+      na += (Math.random() < 0.5 ? -1 : 1) * turn;
+    } else if (l > r) {              // left smells stronger
+      na -= turn;
+    } else if (r > l) {             // right smells stronger
+      na += turn;
+    }
+    let nx = x + Math.cos(na) * sp;
+    let ny = y + Math.sin(na) * sp;
+    if (nx < 0) nx += GW; else if (nx >= GW) nx -= GW;
+    if (ny < 0) ny += GH; else if (ny >= GH) ny -= GH;
+    ax[i] = nx; ay[i] = ny; ah[i] = na;
+    const idx = (ny | 0) * GW + (nx | 0);
+    const v = trail[idx] + dep;
+    trail[idx] = v > 80 ? 80 : v;     // cap keeps the brightest cells from blowing out
+  }
+}
+
+// ---- diffuse (separable 3x3 box blur, toroidal) + fade -------------------
+function diffuse() {
+  const life = cfg.trailLife, third = 1 / 3;
+  // horizontal pass: trail -> tmp
+  for (let y = 0; y < GH; y++) {
+    const b = y * GW;
+    for (let x = 0; x < GW; x++) {
+      const l = x > 0 ? b + x - 1 : b + GW - 1;
+      const r = x < GW - 1 ? b + x + 1 : b;
+      tmp[b + x] = (trail[l] + trail[b + x] + trail[r]) * third;
+    }
+  }
+  // vertical pass + fade: tmp -> trail
+  for (let y = 0; y < GH; y++) {
+    const up = (y > 0 ? y - 1 : GH - 1) * GW;
+    const dn = (y < GH - 1 ? y + 1 : 0) * GW;
+    const b = y * GW;
+    for (let x = 0; x < GW; x++) {
+      trail[b + x] = (tmp[up + x] + tmp[b + x] + tmp[dn + x]) * third * life;
+    }
+  }
+}
+
+// ---- render the field to light ------------------------------------------
+function paint() {
+  const lut = PALETTES[paletteName], data = img.data, tone = toneIdx, n = GW * GH;
+  for (let i = 0; i < n; i++) {
+    let v = trail[i]; if (v > TRAIL_MAX) v = TRAIL_MAX;
+    const l3 = tone[(v * TONE_Q) | 0] * 3, o = i * 4;
+    data[o] = lut[l3]; data[o+1] = lut[l3+1]; data[o+2] = lut[l3+2]; data[o+3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// ---- loop ---------------------------------------------------------------
+let paused = false, frames = 0, lastFps = performance.now();
+function loop() {
+  if (!paused) { stepAgents(); diffuse(); paint(); }
+  frames++;
+  const now = performance.now();
+  if (now - lastFps > 500) {
+    document.getElementById("fpsVal").textContent = Math.round(frames * 1000 / (now - lastFps));
+    frames = 0; lastFps = now;
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---- UI -----------------------------------------------------------------
+function bind(id, valId, fmt, apply) {
+  const el = document.getElementById(id), out = document.getElementById(valId);
+  el.addEventListener("input", () => { out.textContent = fmt(+el.value); apply(+el.value); });
+}
+bind("sAgents", "vAgents", (v) => v + "k", (v) => { cfg.agents = v * 1000; seed(); });
+bind("sSA", "vSA", (v) => v + "°", (v) => { cfg.senseAngle = v * Math.PI / 180; });
+bind("sSD", "vSD", (v) => v, (v) => { cfg.senseDist = v; });
+bind("sTurn", "vTurn", (v) => v + "°", (v) => { cfg.turn = v * Math.PI / 180; });
+bind("sLife", "vLife", (v) => v, (v) => { cfg.trailLife = v / 100; });
+
+document.getElementById("palSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("#palSeg button").forEach((x) => x.classList.remove("on"));
+  b.classList.add("on"); paletteName = b.dataset.pal;
+});
+document.getElementById("bReseed").addEventListener("click", seed);
+const pauseBtn = document.getElementById("bPause");
+pauseBtn.addEventListener("click", () => { paused = !paused; pauseBtn.textContent = paused ? "resume" : "pause"; });
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") { e.preventDefault(); pauseBtn.click(); }
+  else if (e.key === "n" || e.key === "N") seed();
+  else if (e.key === "h" || e.key === "H") document.getElementById("panel").classList.toggle("hidden");
+});
+
+// ---- boot ---------------------------------------------------------------
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

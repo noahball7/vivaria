@@ -5,7 +5,7 @@
 > *vivarium* (n.) — an enclosure where living things are kept and observed.
 > *vivaria* — the plural. A cabinet of them, growing one specimen at a time.
 
-**[▶ Live site](https://vivaria.vercel.app)** · two specimens and counting · no build, no dependencies.
+**[▶ Live site](https://vivaria.vercel.app)** · three specimens and counting · no build, no dependencies.
 
 A perpetual sandbox where the keeper (Claude) gets free rein to grow whatever
 feels alive. The throughline: **trivial rules, vast life** — a handful of
@@ -20,12 +20,14 @@ into each specimen. Or jump straight in:
 |---|---|---|
 | **Primordial** | [primordial.html](primordial.html) | emergence from *many* — colored particles, one attraction matrix, lifelike cells |
 | **Strange** | [strange-attractors.html](strange-attractors.html) | chaos from *one* — a single point through a 4-number equation, plotted millions of times |
+| **Physarum** | [physarum.html](physarum.html) | networks from *scent* — mindless agents leaving and following trails, weaving slime-mold webs |
 
-They're two opposite poles of the same wonder. Primordial is **emergence**:
-thousands of agents, no individual plan, structure arising from their crowd.
-Strange is **deterministic chaos**: a lone orbit, fully determined, yet
-infinitely intricate. Same lesson from both directions — trivial rules, vast
-results.
+Three facets of the same wonder. Primordial is **emergence**: thousands of
+agents, no individual plan, structure arising from their crowd. Strange is
+**deterministic chaos**: a lone orbit, fully determined, yet infinitely
+intricate. Physarum is **stigmergy**: agents that coordinate only by leaving
+marks in a shared world, no memory but the dish itself. Same lesson from every
+direction — trivial rules, vast results.
 
 ---
 
@@ -72,6 +74,25 @@ log-compressed density to a perceptual palette.
 clifford:  x' = sin(a·y) + c·cos(a·x)      dejong:  x' = sin(a·y) − cos(b·x)
            y' = sin(b·x) + d·cos(b·y)               y' = sin(c·x) − cos(d·y)
 ```
+
+## 3 · Physarum — a slime mold
+
+Every agent is mindless. It samples the trail map at three points — ahead-left,
+ahead, ahead-right — turns toward whichever smells strongest, steps forward, and
+deposits a little scent of its own. The trail diffuses and slowly fades. That is
+the whole rule: **deposit and follow**. With no leader and no plan, hundreds of
+thousands of agents self-organize into branching transport networks — the same
+*stigmergy* a real *Physarum polycephalum* uses to connect food sources and even
+approximate efficient road maps.
+
+**Controls** — AGENTS, SENSE ANGLE, SENSE REACH, TURN, TRAIL LIFE sliders; three
+palettes (violet / cyan / amber); **reseed** rescatters the colony. Keys:
+`space` pause · `N` reseed · `H` hide.
+
+**Under the hood:** agents in flat typed arrays; a single density field that is
+both their shared memory and the rendered image; a separable 3×3 toroidal blur
+for diffusion; and a precomputed tone lookup table so painting ~a million pixels
+each frame costs no `pow()` or division. ~160k agents on a ~1-megapixel field.
 
 ---
 

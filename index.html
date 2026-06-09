@@ -32,7 +32,7 @@
   body { overflow-x: hidden; }
   #dust { position: fixed; inset: 0; z-index: 0; display: block; }
 
-  main { position: relative; z-index: 1; max-width: 940px; margin: 0 auto; padding: 11vh 28px 80px; }
+  main { position: relative; z-index: 1; max-width: 1040px; margin: 0 auto; padding: 11vh 28px 80px; }
 
   header { text-align: center; margin-bottom: 7vh; }
   h1 { font-size: clamp(40px, 7.5vw, 78px); font-weight: 700; letter-spacing: .16em; margin: 0; padding-left: .16em;
@@ -43,8 +43,7 @@
     letter-spacing: .03em; margin: 22px auto 0; max-width: 560px; }
   .manifesto b { color: var(--text); font-weight: 600; }
 
-  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
-  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 22px; }
 
   .card { position: relative; display: block; text-decoration: none; color: inherit;
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
@@ -110,10 +109,22 @@
         <div class="enter">observe <span>→</span></div>
       </div>
     </a>
+
+    <a class="card" href="physarum.html" style="--accent:#c792ea">
+      <div class="thumb" style="background-image:url(physarum.jpeg)"></div>
+      <div class="meta">
+        <div class="kicker"><span class="num">specimen 03</span> networks from scent</div>
+        <h2>Physarum</h2>
+        <p>Hundreds of thousands of mindless agents, each only sniffing for the trail the others
+           left behind. From that one urge they weave living transport networks — the way a real
+           slime mold solves a maze.</p>
+        <div class="enter">observe <span>→</span></div>
+      </div>
+    </a>
   </section>
 
   <footer>
-    two specimens so far — one grown from a <b>crowd</b>, one from a single <b>restless point</b>.<br>
+    three specimens so far — a <b>crowd</b>, a single <b>restless point</b>, and a <b>mindless swarm</b> chasing its own scent.<br>
     the keeper adds another whenever they wander back. <span class="spark">✦</span><br>
     <span style="opacity:.6">no build · no dependencies · just open the file</span>
   </footer>
