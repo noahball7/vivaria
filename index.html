@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vivaria — a cabinet of small living worlds</title>
+<meta name="description" content="A cabinet of small living worlds — tiny rules unfolding into lifelike behavior. Emergent particle life and strange-attractor chaos, no build and no dependencies." />
+<meta name="author" content="Noah Ball" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Vivaria — a cabinet of small living worlds" />
+<meta property="og:description" content="Trivial rules, vast life. Generative lifeforms grown from a handful of numbers — emergence and deterministic chaos, kept behind glass." />
+<meta property="og:url" content="https://vivaria.vercel.app/" />
+<meta property="og:image" content="https://vivaria.vercel.app/og.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Vivaria — a cabinet of small living worlds" />
+<meta name="twitter:description" content="Trivial rules, vast life. Generative lifeforms grown from a handful of numbers." />
+<meta name="twitter:image" content="https://vivaria.vercel.app/og.jpg" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%2306070b'/><circle cx='8.5' cy='9' r='2.4' fill='%236cf0c2'/><circle cx='15.5' cy='12.5' r='2.4' fill='%23c792ea'/><circle cx='10' cy='15.5' r='2.2' fill='%23ffb86c'/></svg>" />
+<style>
+  :root {
+    --bg: #06070b;
+    --panel: rgba(15, 17, 26, 0.66);
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #e7e9f0;
+    --muted: #8a8fa3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace; -webkit-font-smoothing: antialiased; }
+  body { overflow-x: hidden; }
+  #dust { position: fixed; inset: 0; z-index: 0; display: block; }
+
+  main { position: relative; z-index: 1; max-width: 940px; margin: 0 auto; padding: 11vh 28px 80px; }
+
+  header { text-align: center; margin-bottom: 7vh; }
+  h1 { font-size: clamp(40px, 7.5vw, 78px); font-weight: 700; letter-spacing: .16em; margin: 0; padding-left: .16em;
+    background: linear-gradient(110deg, #6cf0c2, #7be0ff 40%, #c792ea 70%, #ffb86c);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .kick { color: var(--muted); font-size: 11px; letter-spacing: .42em; text-transform: uppercase; margin: 0 0 18px; padding-left: .42em; }
+  .manifesto { color: var(--muted); font-size: clamp(12px, 1.6vw, 14px); line-height: 1.95;
+    letter-spacing: .03em; margin: 22px auto 0; max-width: 560px; }
+  .manifesto b { color: var(--text); font-weight: 600; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+
+  .card { position: relative; display: block; text-decoration: none; color: inherit;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    backdrop-filter: blur(10px) saturate(1.2);
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), border-color .35s, box-shadow .35s; }
+  .card:hover { transform: translateY(-6px);
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    box-shadow: 0 18px 50px rgba(0,0,0,.55), 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+  .thumb { aspect-ratio: 16 / 10; background-size: cover; background-position: center;
+    transform: scale(1.02); transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+  .card:hover .thumb { transform: scale(1.09); }
+  .thumb::after { content: ""; position: absolute; inset: 0; height: 64%; top: auto;
+    background: linear-gradient(transparent, var(--panel) 92%); }
+
+  .meta { position: relative; padding: 16px 20px 20px; }
+  .kicker { display: flex; align-items: center; gap: 9px; font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 9px; }
+  .kicker .num { font-size: 10px; color: var(--muted); border: 1px solid var(--line);
+    border-radius: 5px; padding: 1px 6px; letter-spacing: .05em; }
+  .meta h2 { margin: 0 0 8px; font-size: 21px; letter-spacing: .02em; font-weight: 600; }
+  .meta p { margin: 0; font-size: 12px; line-height: 1.75; color: var(--muted); letter-spacing: .02em; }
+  .enter { margin-top: 14px; font-size: 11px; letter-spacing: .08em; color: var(--accent); opacity: .85;
+    transition: gap .25s; display: inline-flex; gap: 6px; }
+  .card:hover .enter { gap: 12px; }
+
+  footer { text-align: center; margin-top: 7vh; font-size: 11px; color: var(--muted); letter-spacing: .06em; line-height: 1.95; }
+  footer b { color: var(--text); font-weight: 600; }
+  footer .spark { color: #c792ea; }
+</style>
+</head>
+<body>
+<canvas id="dust"></canvas>
+
+<main>
+  <header>
+    <p class="kick">a cabinet of small living worlds</p>
+    <h1>VIVARIA</h1>
+    <p class="manifesto">Each world here grows from almost nothing — a handful of numbers, a rule
+      short enough to write on a napkin — then is left to unfold on its own. The keeper only sets
+      the law and watches what crawls out. <b>Trivial rules, vast life.</b></p>
+  </header>
+
+  <section class="grid">
+    <a class="card" href="primordial.html" style="--accent:#6cf0c2">
+      <div class="thumb" style="background-image:url(primordial.jpeg)"></div>
+      <div class="meta">
+        <div class="kicker"><span class="num">specimen 01</span> emergence from many</div>
+        <h2>Primordial</h2>
+        <p>Thousands of colored particles and one random attraction matrix. Cells, membranes,
+           and chasing comets that nobody designed fall out of the rules on their own.</p>
+        <div class="enter">observe <span>→</span></div>
+      </div>
+    </a>
+
+    <a class="card" href="strange-attractors.html" style="--accent:#ffb86c">
+      <div class="thumb" style="background-image:url(strange.jpeg); background-position:center 42%"></div>
+      <div class="meta">
+        <div class="kicker"><span class="num">specimen 02</span> chaos from one</div>
+        <h2>Strange</h2>
+        <p>A single point fed through a four-number equation forever, plotted a few hundred
+           million times. Deterministic, never repeating — a restless ghost made of smoke.</p>
+        <div class="enter">observe <span>→</span></div>
+      </div>
+    </a>
+  </section>
+
+  <footer>
+    two specimens so far — one grown from a <b>crowd</b>, one from a single <b>restless point</b>.<br>
+    the keeper adds another whenever they wander back. <span class="spark">✦</span><br>
+    <span style="opacity:.6">no build · no dependencies · just open the file</span>
+  </footer>
+</main>
+
+<script>
+"use strict";
+/* A calm field of drifting dust — slow, faint, parallaxed. Sets a living
+   backdrop for the cabinet without competing with the specimens. */
+const cv = document.getElementById("dust");
+const c = cv.getContext("2d");
+let W, H, motes;
+function init() {
+  W = cv.width = window.innerWidth; H = cv.height = window.innerHeight;
+  const n = Math.round(Math.min(120, (W * H) / 16000));
+  motes = Array.from({ length: n }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    z: 0.3 + Math.random() * 0.9,                 // depth → size, speed, brightness
+    a: Math.random() * Math.PI * 2,               // drift heading
+    tw: Math.random() * Math.PI * 2,              // twinkle phase
+  }));
+}
+const TINTS = ["108,240,194", "123,224,255", "199,146,234", "255,184,108"];
+function frame(t) {
+  c.clearRect(0, 0, W, H);
+  for (let i = 0; i < motes.length; i++) {
+    const m = motes[i];
+    m.x += Math.cos(m.a) * 0.14 * m.z;
+    m.y += Math.sin(m.a) * 0.14 * m.z + 0.05 * m.z;   // gentle downward bias
+    m.a += 0.0008 * (i % 2 ? 1 : -1);                 // slow curl
+    if (m.x < -8) m.x = W + 8; else if (m.x > W + 8) m.x = -8;
+    if (m.y < -8) m.y = H + 8; else if (m.y > H + 8) m.y = -8;
+    const tw = 0.55 + 0.45 * Math.sin(t * 0.0009 + m.tw);
+    const r = m.z * 1.5;
+    c.beginPath();
+    c.fillStyle = `rgba(${TINTS[i % TINTS.length]}, ${0.05 + 0.13 * m.z * tw})`;
+    c.arc(m.x, m.y, r, 0, Math.PI * 2);
+    c.fill();
+  }
+  requestAnimationFrame(frame);
+}
+window.addEventListener("resize", init);
+init();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

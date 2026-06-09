@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Strange · an attractor observatory</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%2306070b'/><circle cx='12' cy='12' r='4.6' fill='%23ffb86c'/></svg>" />
+<style>
+  :root {
+    --bg: #05060a;
+    --panel: rgba(14, 16, 24, 0.82);
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e7e9f0;
+    --muted: #8a8fa3;
+    --accent: #ffb86c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg);
+    color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; -webkit-font-smoothing: antialiased; }
+  #stage { position: fixed; inset: 0; display: block; }
+
+  #panel {
+    position: fixed; top: 16px; left: 16px; width: 250px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; backdrop-filter: blur(14px) saturate(1.3);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5); user-select: none;
+    transition: opacity .25s, transform .25s; z-index: 10;
+  }
+  #panel.hidden { opacity: 0; transform: translateX(-14px); pointer-events: none; }
+  .title { font-size: 15px; letter-spacing: .14em; font-weight: 600; }
+  .title .dot { color: var(--accent); }
+  .back { display: inline-block; font-size: 10px; letter-spacing: .14em; color: var(--muted); text-decoration: none; margin-bottom: 11px; transition: color .15s; }
+  .back:hover { color: var(--accent); }
+  .sub { font-size: 10.5px; color: var(--muted); margin-top: 3px; letter-spacing: .04em; }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  .seg button, .btns button {
+    font-family: inherit; font-size: 11px; letter-spacing: .04em; color: var(--text);
+    background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 9px;
+    padding: 9px 6px; cursor: pointer; transition: background .15s, border-color .15s;
+  }
+  .seg button.on { background: rgba(255,184,108,0.16); border-color: rgba(255,184,108,.4); color: var(--accent); }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .btns button:hover, .seg button:hover { background: rgba(255,184,108,0.12); border-color: rgba(255,184,108,.4); }
+  .btns button.wide { grid-column: 1 / -1; }
+  .btns button.primary { background: rgba(255,184,108,0.14); border-color: rgba(255,184,108,.35); color: var(--accent); }
+  .label { font-size: 10px; color: var(--muted); letter-spacing: .1em; margin: 16px 0 7px; }
+
+  #params { font-size: 10.5px; color: var(--muted); line-height: 1.9; letter-spacing: .04em;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  #params b { color: var(--text); font-weight: 600; }
+  #params .name { color: var(--accent); }
+
+  .foot { margin-top: 14px; font-size: 9.5px; color: var(--muted); line-height: 1.8; }
+  .foot kbd { background: rgba(255,255,255,0.08); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 9px; color: var(--text); }
+  #status { position: fixed; top: 16px; right: 18px; font-size: 10.5px; color: var(--muted); letter-spacing: .06em; z-index: 10; }
+  #status b { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div id="panel">
+  <a class="back" href="index.html">↩ vivaria</a>
+  <div class="title">STRANGE<span class="dot">.</span></div>
+  <div class="sub">deterministic chaos · one equation</div>
+
+  <div class="label">SYSTEM</div>
+  <div class="seg" id="systemSeg">
+    <button data-sys="clifford" class="on">clifford</button>
+    <button data-sys="dejong">de jong</button>
+  </div>
+
+  <div class="label">PALETTE</div>
+  <div class="seg" id="paletteSeg">
+    <button data-pal="ember" class="on">ember</button>
+    <button data-pal="ice">ice</button>
+    <button data-pal="bloom" style="grid-column:1/-1">bloom</button>
+  </div>
+
+  <div class="btns">
+    <button id="bNew" class="primary wide">new attractor</button>
+    <button id="bAuto">autoplay</button>
+    <button id="bSave">save png</button>
+  </div>
+
+  <div id="params"></div>
+
+  <div class="foot">
+    <kbd>N</kbd> new · <kbd>A</kbd> autoplay · <kbd>S</kbd> save · <kbd>H</kbd> hide<br/>
+    each frame plots more points — let it resolve.
+  </div>
+</div>
+
+<div id="status"><b id="pts">0</b> M points</div>
+
+<script>
+"use strict";
+/* ========================================================================
+   STRANGE — an attractor observatory
+   --------------------------------------------------------------------------
+   A single point starts somewhere and is fed through the same two-line map
+   over and over. It never repeats and never escapes — it traces a "strange
+   attractor". We plot a few hundred thousand of its steps per frame into a
+   density histogram, then tone-map that density to light. The crisp, smoky
+   filigree is where the orbit lingers; the dark is where it never goes.
+   Four numbers (a, b, c, d) define an entire universe of structure.
+   ======================================================================== */
+
+const canvas = document.getElementById("stage");
+const ctx = canvas.getContext("2d", { alpha: false });
+
+let W = 0, H = 0;
+let hist;            // Float32 density accumulator, W*H
+let img;             // ImageData we paint each frame
+let maxDensity = 0;
+let totalPoints = 0;
+
+// ---- attractor systems --------------------------------------------------
+// Each returns the next [x, y]. Both are bounded by sin/cos, so the orbit
+// can never fly off to infinity — only collapse to a boring point/cycle,
+// which we detect and reject.
+const SYSTEMS = {
+  clifford: {
+    range: [-2, 2],
+    next: (x, y, p) => [
+      Math.sin(p.a * y) + p.c * Math.cos(p.a * x),
+      Math.sin(p.b * x) + p.d * Math.cos(p.b * y),
+    ],
+  },
+  dejong: {
+    range: [-3, 3],
+    next: (x, y, p) => [
+      Math.sin(p.a * y) - Math.cos(p.b * x),
+      Math.sin(p.c * x) - Math.cos(p.d * y),
+    ],
+  },
+};
+let systemName = "clifford";
+let params = { a: -1.4, b: 1.6, c: 1.0, d: 0.7 };
+
+// affine map from attractor space → pixels, fit to a measured bounding box
+let tx = { sx: 1, sy: 1, ox: 0, oy: 0 };
+
+// ---- palettes (256-entry LUTs interpolated from anchors) ----------------
+function buildLUT(anchors) {
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255;
+    let k = 0; while (k < anchors.length - 2 && t > anchors[k + 1][0]) k++;
+    const [t0, c0] = anchors[k], [t1, c1] = anchors[k + 1];
+    const f = t1 > t0 ? (t - t0) / (t1 - t0) : 0;
+    lut[i*3]   = c0[0] + (c1[0] - c0[0]) * f;
+    lut[i*3+1] = c0[1] + (c1[1] - c0[1]) * f;
+    lut[i*3+2] = c0[2] + (c1[2] - c0[2]) * f;
+  }
+  return lut;
+}
+const PALETTES = {
+  ember: buildLUT([[0,[6,4,12]],[0.18,[48,12,78]],[0.4,[120,28,98]],[0.62,[196,52,72]],[0.8,[240,128,38]],[1,[255,248,180]]]),
+  ice:   buildLUT([[0,[4,6,14]],[0.28,[14,44,96]],[0.55,[34,128,196]],[0.82,[126,222,255]],[1,[255,255,255]]]),
+  bloom: buildLUT([[0,[8,5,14]],[0.22,[70,18,96]],[0.45,[150,30,140]],[0.65,[226,58,120]],[0.83,[255,150,90]],[1,[255,250,210]]]),
+};
+let paletteName = "ember";
+
+// ---- sizing -------------------------------------------------------------
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W; canvas.height = H;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  hist = new Float32Array(W * H);
+  img = ctx.createImageData(W, H);
+  setupAttractor(params, false); // refit + reset for the new size
+}
+window.addEventListener("resize", resize);
+
+// ---- choosing an attractor ----------------------------------------------
+function randParams() {
+  const r = SYSTEMS[systemName].range;
+  const rnd = () => r[0] + Math.random() * (r[1] - r[0]);
+  return { a: rnd(), b: rnd(), c: rnd(), d: rnd() };
+}
+
+// Burn in, measure the bounding box, and judge whether the orbit fills
+// enough distinct cells to be visually interesting (rejects points & thin cycles).
+function probe(p) {
+  const step = SYSTEMS[systemName].next;
+  let x = 0.1, y = 0.1;
+  for (let i = 0; i < 1500; i++) { [x, y] = step(x, y, p); }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const cells = new Set(), G = 64;
+  for (let i = 0; i < 24000; i++) {
+    [x, y] = step(x, y, p);
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+    cells.add((((x + 3) * G) | 0) * 1000 + (((y + 3) * G) | 0));
+  }
+  const spread = Math.min(maxX - minX, maxY - minY);
+  return { minX, minY, maxX, maxY, occupancy: cells.size, ok: spread > 0.35 && cells.size > 380 };
+}
+
+function setupAttractor(p, reseedParams) {
+  if (reseedParams) {
+    let probe_, tries = 0;
+    do { p = randParams(); probe_ = probe(p); tries++; } while (!probe_.ok && tries < 60);
+    params = p; var box = probe_;
+  } else {
+    var box = probe(p);
+  }
+  // fit bounding box into the canvas with a margin, preserving aspect
+  const margin = 0.08;
+  const bw = Math.max(1e-3, box.maxX - box.minX), bh = Math.max(1e-3, box.maxY - box.minY);
+  const s = Math.min(W * (1 - 2*margin) / bw, H * (1 - 2*margin) / bh);
+  tx.sx = s; tx.sy = s;
+  tx.ox = (W - s * (box.maxX + box.minX)) / 2;
+  tx.oy = (H - s * (box.maxY + box.minY)) / 2;
+  hist.fill(0); maxDensity = 0; totalPoints = 0;
+  orbit.x = 0.1; orbit.y = 0.1;
+  // discard transient so we don't plot the approach path
+  const step = SYSTEMS[systemName].next;
+  for (let i = 0; i < 1000; i++) { [orbit.x, orbit.y] = step(orbit.x, orbit.y, params); }
+  renderParams();
+}
+
+// ---- the running orbit + per-frame accumulation -------------------------
+const orbit = { x: 0.1, y: 0.1 };
+const POINTS_PER_FRAME = 220000;
+
+function accumulate() {
+  const step = SYSTEMS[systemName].next;
+  let x = orbit.x, y = orbit.y;
+  const sx = tx.sx, sy = tx.sy, ox = tx.ox, oy = tx.oy;
+  for (let i = 0; i < POINTS_PER_FRAME; i++) {
+    [x, y] = step(x, y, params);
+    const px = (x * sx + ox) | 0, py = (y * sy + oy) | 0;
+    if (px >= 0 && px < W && py >= 0 && py < H) {
+      const idx = py * W + px;
+      const v = hist[idx] + 1;
+      hist[idx] = v;
+      if (v > maxDensity) maxDensity = v;
+    }
+  }
+  orbit.x = x; orbit.y = y;
+  totalPoints += POINTS_PER_FRAME;
+}
+
+// ---- tone-map the density field to light --------------------------------
+function paint() {
+  const lut = PALETTES[paletteName];
+  const data = img.data;
+  const invLogMax = maxDensity > 1 ? 1 / Math.log(1 + maxDensity) : 1;
+  const n = W * H;
+  for (let i = 0; i < n; i++) {
+    const d = hist[i];
+    let o = i * 4;
+    if (d === 0) { data[o] = 5; data[o+1] = 6; data[o+2] = 10; data[o+3] = 255; continue; }
+    // log compression + gentle gamma lift so faint filaments still glow
+    let norm = Math.log(1 + d) * invLogMax;
+    norm = norm < 0 ? 0 : norm > 1 ? 1 : norm;
+    norm = Math.pow(norm, 0.78);
+    const li = (norm * 255) | 0, l3 = li * 3;
+    data[o] = lut[l3]; data[o+1] = lut[l3+1]; data[o+2] = lut[l3+2]; data[o+3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// ---- main loop ----------------------------------------------------------
+let autoplay = false, autoAt = 0, frame = 0;
+function loop(now) {
+  accumulate();
+  paint();
+  document.getElementById("pts").textContent = (totalPoints / 1e6).toFixed(1);
+  if (autoplay && now > autoAt) { newAttractor(); autoAt = now + 12000; }
+  frame++;
+  requestAnimationFrame(loop);
+}
+
+// ---- actions ------------------------------------------------------------
+function newAttractor() { setupAttractor(null, true); }
+
+function renderParams() {
+  const f = (v) => (v >= 0 ? " " : "") + v.toFixed(3);
+  document.getElementById("params").innerHTML =
+    `<span class="name">${systemName}</span> map<br>` +
+    `a ${f(params.a)}   b ${f(params.b)}<br>c ${f(params.c)}   d ${f(params.d)}`;
+}
+
+function savePNG() {
+  const a = document.createElement("a");
+  a.download = `strange-${systemName}-${Date.now().toString(36)}.png`;
+  a.href = canvas.toDataURL("image/png");
+  a.click();
+}
+
+// ---- UI wiring ----------------------------------------------------------
+function wireSeg(segId, attr, onPick) {
+  const seg = document.getElementById(segId);
+  seg.addEventListener("click", (e) => {
+    const btn = e.target.closest("button"); if (!btn) return;
+    seg.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
+    btn.classList.add("on");
+    onPick(btn.dataset[attr]);
+  });
+}
+wireSeg("systemSeg", "sys", (v) => { systemName = v; params = randParams(); setupAttractor(null, true); });
+wireSeg("paletteSeg", "pal", (v) => { paletteName = v; });
+
+document.getElementById("bNew").addEventListener("click", newAttractor);
+document.getElementById("bSave").addEventListener("click", savePNG);
+const autoBtn = document.getElementById("bAuto");
+autoBtn.addEventListener("click", () => {
+  autoplay = !autoplay; autoBtn.classList.toggle("on", autoplay);
+  autoAt = performance.now() + 12000;
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "n" || e.key === "N") newAttractor();
+  else if (e.key === "a" || e.key === "A") autoBtn.click();
+  else if (e.key === "s" || e.key === "S") savePNG();
+  else if (e.key === "h" || e.key === "H") document.getElementById("panel").classList.toggle("hidden");
+});
+
+// ---- boot ---------------------------------------------------------------
+resize();
+setupAttractor(params, false);  // start on the classic Clifford
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

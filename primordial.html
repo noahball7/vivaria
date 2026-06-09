@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Primordial · a particle life sandbox</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%2306070b'/><circle cx='12' cy='12' r='4.6' fill='%236cf0c2'/></svg>" />
+<style>
+  :root {
+    --bg: #06070b;
+    --panel: rgba(14, 16, 24, 0.82);
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e7e9f0;
+    --muted: #8a8fa3;
+    --accent: #6cf0c2;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  #stage { position: fixed; inset: 0; display: block; cursor: crosshair; }
+
+  /* ---- control panel ---------------------------------------------------- */
+  #panel {
+    position: fixed; top: 16px; left: 16px; width: 268px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px 16px 14px;
+    backdrop-filter: blur(14px) saturate(1.3);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    user-select: none; transition: opacity .25s, transform .25s;
+    z-index: 10;
+  }
+  #panel.hidden { opacity: 0; transform: translateX(-14px); pointer-events: none; }
+  .title { font-size: 15px; letter-spacing: .14em; font-weight: 600; }
+  .title .dot { color: var(--accent); }
+  .back { display: inline-block; font-size: 10px; letter-spacing: .14em; color: var(--muted); text-decoration: none; margin-bottom: 11px; transition: color .15s; }
+  .back:hover { color: var(--accent); }
+  .sub { font-size: 10.5px; color: var(--muted); margin-top: 3px; letter-spacing: .04em; }
+
+  .row { margin-top: 14px; }
+  .row label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: .03em; }
+  .row label .val { color: var(--text); }
+  input[type="range"] {
+    -webkit-appearance: none; width: 100%; height: 3px; border-radius: 3px;
+    background: rgba(255,255,255,0.14); outline: none; margin: 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); cursor: pointer; box-shadow: 0 0 10px rgba(108,240,194,.7);
+  }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  button {
+    font-family: inherit; font-size: 11px; letter-spacing: .04em;
+    color: var(--text); background: rgba(255,255,255,0.05);
+    border: 1px solid var(--line); border-radius: 9px; padding: 9px 6px;
+    cursor: pointer; transition: background .15s, border-color .15s;
+  }
+  button:hover { background: rgba(108,240,194,0.12); border-color: rgba(108,240,194,.4); }
+  button.wide { grid-column: 1 / -1; }
+  button.primary { background: rgba(108,240,194,0.14); border-color: rgba(108,240,194,.35); color: var(--accent); }
+
+  #matrix { margin-top: 16px; }
+  #matrix .caption { font-size: 10px; color: var(--muted); margin-bottom: 7px; letter-spacing: .08em; }
+  #matrixGrid { display: grid; gap: 2px; }
+  .cell { width: 100%; aspect-ratio: 1; border-radius: 2px; }
+
+  .foot { margin-top: 14px; font-size: 9.5px; color: var(--muted); line-height: 1.7; letter-spacing: .02em; }
+  .foot kbd {
+    background: rgba(255,255,255,0.08); border: 1px solid var(--line);
+    border-radius: 4px; padding: 0 5px; font-size: 9px; color: var(--text);
+  }
+
+  #hint {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    font-size: 10.5px; color: var(--muted); letter-spacing: .08em;
+    pointer-events: none; opacity: .5; z-index: 10;
+  }
+  #fps {
+    position: fixed; top: 16px; right: 18px; font-size: 10.5px;
+    color: var(--muted); letter-spacing: .06em; z-index: 10;
+  }
+  #fps b { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div id="panel">
+  <a class="back" href="index.html">↩ vivaria</a>
+  <div class="title">PRIMORDIAL<span class="dot">.</span></div>
+  <div class="sub">simple rules · emergent life</div>
+
+  <div class="row">
+    <label>SPECIES <span class="val" id="vTypes">5</span></label>
+    <input id="sTypes" type="range" min="2" max="8" step="1" value="5" />
+  </div>
+  <div class="row">
+    <label>POPULATION <span class="val" id="vCount">2400</span></label>
+    <input id="sCount" type="range" min="400" max="6000" step="100" value="2400" />
+  </div>
+  <div class="row">
+    <label>REACH <span class="val" id="vReach">90</span></label>
+    <input id="sReach" type="range" min="40" max="180" step="5" value="90" />
+  </div>
+  <div class="row">
+    <label>FRICTION <span class="val" id="vFric">58</span></label>
+    <input id="sFric" type="range" min="10" max="92" step="1" value="58" />
+  </div>
+  <div class="row">
+    <label>FORCE <span class="val" id="vForce">55</span></label>
+    <input id="sForce" type="range" min="10" max="150" step="5" value="55" />
+  </div>
+
+  <div class="btns">
+    <button id="bRules" class="primary">new rules</button>
+    <button id="bReseed">reseed</button>
+    <button id="bPause" class="wide">pause</button>
+  </div>
+
+  <div id="matrix">
+    <div class="caption">INTERACTION MATRIX</div>
+    <div id="matrixGrid"></div>
+  </div>
+
+  <div class="foot">
+    <kbd>space</kbd> pause · <kbd>R</kbd> rules · <kbd>N</kbd> reseed · <kbd>H</kbd> hide<br/>
+    drag to stir the soup · scroll to zoom interaction
+  </div>
+</div>
+
+<div id="fps">~ <b id="fpsVal">60</b> fps</div>
+<div id="hint">drag the soup · press H to hide controls</div>
+
+<script>
+"use strict";
+/* ========================================================================
+   PRIMORDIAL — a particle life sandbox
+   --------------------------------------------------------------------------
+   Each particle belongs to one of N species. For every ordered pair of
+   species (a, b) there is an attraction coefficient in [-1, 1]. Within a
+   small radius, particle a feels that force toward/away from particle b.
+   Up close, everything repels (so particles can't collapse to a point).
+   That's the entire law. Cells, membranes, chasers, and pulsing organisms
+   are not programmed — they fall out of the matrix.
+   ======================================================================== */
+
+const canvas = document.getElementById("stage");
+const ctx = canvas.getContext("2d", { alpha: false });
+
+// ---- configuration (mutated by the UI) ---------------------------------
+const cfg = {
+  types: 5,
+  count: 2400,
+  rMax: 90,        // interaction radius in pixels ("reach")
+  friction: 0.42,  // velocity retained per frame is derived from this
+  forceK: 55,      // global force multiplier
+  beta: 0.30,      // fraction of rMax that is the hard repulsion core
+  dt: 0.016,
+};
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildGrid();
+}
+window.addEventListener("resize", resize);
+
+// ---- palette & glow sprites --------------------------------------------
+// Pleasant, well-separated hues. Each species gets a pre-rendered radial
+// sprite so thousands of glowing dots cost one drawImage each.
+const PALETTE = [
+  "#ff5d73", "#6cf0c2", "#ffd166", "#5b8cff",
+  "#c792ea", "#ff9f6b", "#7be0ff", "#a6e22e",
+];
+let sprites = [];
+function buildSprites() {
+  sprites = PALETTE.map((hex) => {
+    const s = 18, off = document.createElement("canvas");
+    off.width = off.height = s;
+    const c = off.getContext("2d");
+    const g = c.createRadialGradient(s/2, s/2, 0, s/2, s/2, s/2);
+    g.addColorStop(0.0, hex);
+    g.addColorStop(0.35, hex);
+    g.addColorStop(1.0, "rgba(0,0,0,0)");
+    c.fillStyle = g; c.beginPath();
+    c.arc(s/2, s/2, s/2, 0, Math.PI*2); c.fill();
+    return off;
+  });
+}
+buildSprites();
+
+// ---- particle state (structure-of-arrays for speed) --------------------
+let px, py, vx, vy, type;
+function seed() {
+  const n = cfg.count;
+  px = new Float32Array(n); py = new Float32Array(n);
+  vx = new Float32Array(n); vy = new Float32Array(n);
+  type = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    px[i] = Math.random() * W;
+    py[i] = Math.random() * H;
+    type[i] = (Math.random() * cfg.types) | 0;
+  }
+}
+
+// ---- interaction matrix -------------------------------------------------
+// matrix[a*types + b] = how species a feels about species b, in [-1, 1].
+let matrix;
+function randomizeMatrix() {
+  const t = cfg.types;
+  matrix = new Float32Array(t * t);
+  for (let i = 0; i < t * t; i++) matrix[i] = Math.random() * 2 - 1;
+  renderMatrixUI();
+}
+
+// ---- spatial hash grid --------------------------------------------------
+// Cells are rMax wide, so each particle only checks its 9 neighbour cells.
+let cols, rows, cellSize, cellHead, cellNext;
+function buildGrid() {
+  cellSize = cfg.rMax;
+  cols = Math.max(1, Math.ceil(W / cellSize));
+  rows = Math.max(1, Math.ceil(H / cellSize));
+  cellHead = new Int32Array(cols * rows);
+  cellNext = new Int32Array(cfg.count);
+}
+function cellIndex(x, y) {
+  let cx = (x / cellSize) | 0, cy = (y / cellSize) | 0;
+  if (cx < 0) cx = 0; else if (cx >= cols) cx = cols - 1;
+  if (cy < 0) cy = 0; else if (cy >= rows) cy = rows - 1;
+  return cy * cols + cx;
+}
+
+// ---- the force law ------------------------------------------------------
+// r is normalised distance (0..1). Below beta: linear repulsion. Above:
+// a triangular attraction band scaled by the pair coefficient `a`.
+function force(r, a) {
+  if (r < cfg.beta) return r / cfg.beta - 1;
+  if (r < 1) return a * (1 - Math.abs(2 * r - 1 - cfg.beta) / (1 - cfg.beta));
+  return 0;
+}
+
+// ---- mouse / touch stirring --------------------------------------------
+const mouse = { x: 0, y: 0, down: false };
+canvas.addEventListener("pointerdown", (e) => { mouse.down = true; mouse.x = e.clientX; mouse.y = e.clientY; });
+window.addEventListener("pointermove", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+window.addEventListener("pointerup", () => { mouse.down = false; });
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  cfg.rMax = Math.min(180, Math.max(40, cfg.rMax - Math.sign(e.deltaY) * 6));
+  setSlider("sReach", "vReach", cfg.rMax); buildGrid();
+}, { passive: false });
+
+// ---- physics step -------------------------------------------------------
+function step() {
+  const n = cfg.count, t = cfg.types, rMax = cfg.rMax;
+  const frictionFactor = cfg.friction;           // fraction of velocity retained per frame
+  const fscale = rMax * cfg.forceK * cfg.dt;      // accel→velocity increment per step
+
+  // rebuild grid buckets
+  cellHead.fill(-1);
+  for (let i = 0; i < n; i++) {
+    const c = cellIndex(px[i], py[i]);
+    cellNext[i] = cellHead[c]; cellHead[c] = i;
+  }
+
+  const r2max = rMax * rMax;
+  for (let i = 0; i < n; i++) {
+    let fx = 0, fy = 0;
+    const xi = px[i], yi = py[i], ti = type[i];
+    const cx = Math.min(cols - 1, Math.max(0, (xi / cellSize) | 0));
+    const cy = Math.min(rows - 1, Math.max(0, (yi / cellSize) | 0));
+
+    for (let gy = cy - 1; gy <= cy + 1; gy++) {
+      if (gy < 0 || gy >= rows) continue;
+      for (let gx = cx - 1; gx <= cx + 1; gx++) {
+        if (gx < 0 || gx >= cols) continue;
+        let j = cellHead[gy * cols + gx];
+        while (j !== -1) {
+          if (j !== i) {
+            const dx = px[j] - xi, dy = py[j] - yi;
+            const d2 = dx*dx + dy*dy;
+            if (d2 > 0 && d2 < r2max) {
+              const d = Math.sqrt(d2);
+              const f = force(d / rMax, matrix[ti * t + type[j]]);
+              fx += (dx / d) * f;
+              fy += (dy / d) * f;
+            }
+          }
+          j = cellNext[j];
+        }
+      }
+    }
+
+    // mouse stir: gentle radial shove
+    if (mouse.down) {
+      const dx = xi - mouse.x, dy = yi - mouse.y;
+      const d2 = dx*dx + dy*dy;
+      if (d2 < 26000 && d2 > 1) {
+        const d = Math.sqrt(d2), s = (1 - d / 161) * 6;
+        fx += (dx / d) * s; fy += (dy / d) * s;
+      }
+    }
+
+    vx[i] = vx[i] * frictionFactor + fx * fscale;
+    vy[i] = vy[i] * frictionFactor + fy * fscale;
+  }
+
+  // integrate + toroidal wrap (speed cap keeps any random matrix from spiralling into a blur)
+  const maxV = 1800, maxV2 = maxV * maxV;
+  for (let i = 0; i < n; i++) {
+    const sp2 = vx[i]*vx[i] + vy[i]*vy[i];
+    if (sp2 > maxV2) { const k = maxV / Math.sqrt(sp2); vx[i] *= k; vy[i] *= k; }
+    let x = px[i] + vx[i] * cfg.dt;
+    let y = py[i] + vy[i] * cfg.dt;
+    if (x < 0) x += W; else if (x >= W) x -= W;
+    if (y < 0) y += H; else if (y >= H) y -= H;
+    px[i] = x; py[i] = y;
+  }
+}
+
+// ---- render -------------------------------------------------------------
+function render() {
+  // motion-trail fade instead of a hard clear
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "rgba(6, 7, 11, 0.30)";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.globalCompositeOperation = "lighter";
+  const n = cfg.count, r = 5;
+  for (let i = 0; i < n; i++) {
+    ctx.drawImage(sprites[type[i]], px[i] - r, py[i] - r, r*2, r*2);
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
+// ---- main loop ----------------------------------------------------------
+let paused = false, lastFps = performance.now(), frames = 0;
+function loop() {
+  if (!paused) { step(); render(); }
+  frames++;
+  const now = performance.now();
+  if (now - lastFps > 500) {
+    document.getElementById("fpsVal").textContent = Math.round(frames * 1000 / (now - lastFps));
+    frames = 0; lastFps = now;
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---- UI wiring ----------------------------------------------------------
+function setSlider(id, valId, value) {
+  document.getElementById(id).value = value;
+  document.getElementById(valId).textContent = value;
+}
+function bindSlider(id, valId, key, transform) {
+  const el = document.getElementById(id), out = document.getElementById(valId);
+  el.addEventListener("input", () => {
+    const raw = +el.value; out.textContent = raw;
+    cfg[key] = transform ? transform(raw) : raw;
+    if (key === "rMax") buildGrid();
+  });
+}
+bindSlider("sReach", "vReach", "rMax", (v) => v);
+bindSlider("sFric",  "vFric",  "friction", (v) => 1 - v / 100); // higher slider = more drag
+bindSlider("sForce", "vForce", "forceK", (v) => v);
+
+document.getElementById("sTypes").addEventListener("input", (e) => {
+  cfg.types = +e.target.value; document.getElementById("vTypes").textContent = cfg.types;
+  randomizeMatrix(); seed();
+});
+document.getElementById("sCount").addEventListener("input", (e) => {
+  cfg.count = +e.target.value; document.getElementById("vCount").textContent = cfg.count;
+  buildGrid(); seed();
+});
+document.getElementById("bRules").addEventListener("click", () => randomizeMatrix());
+document.getElementById("bReseed").addEventListener("click", () => seed());
+const pauseBtn = document.getElementById("bPause");
+pauseBtn.addEventListener("click", () => { paused = !paused; pauseBtn.textContent = paused ? "resume" : "pause"; });
+
+// interaction matrix swatch grid: red = repel, green = attract
+function renderMatrixUI() {
+  const t = cfg.types, grid = document.getElementById("matrixGrid");
+  grid.style.gridTemplateColumns = `repeat(${t}, 1fr)`;
+  grid.innerHTML = "";
+  for (let a = 0; a < t; a++) {
+    for (let b = 0; b < t; b++) {
+      const v = matrix[a * t + b];
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const hue = v >= 0 ? 150 : 350;
+      cell.style.background = `hsl(${hue}, 70%, ${28 + Math.abs(v) * 34}%)`;
+      cell.title = `${a}→${b}: ${v.toFixed(2)}`;
+      grid.appendChild(cell);
+    }
+  }
+}
+
+// keyboard shortcuts
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") { e.preventDefault(); pauseBtn.click(); }
+  else if (e.key === "r" || e.key === "R") randomizeMatrix();
+  else if (e.key === "n" || e.key === "N") seed();
+  else if (e.key === "h" || e.key === "H") document.getElementById("panel").classList.toggle("hidden");
+});
+
+// fade the bottom hint after a moment
+setTimeout(() => { document.getElementById("hint").style.opacity = "0"; }, 6000);
+
+// ---- boot ---------------------------------------------------------------
+resize();
+randomizeMatrix();
+seed();
+ctx.fillStyle = "#06070b"; ctx.fillRect(0, 0, W, H);
+loop();
+</script>
+</body>
+</html>
